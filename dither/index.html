@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <title>Dithering</title>
+  <style>
+    #canvas {
+      border: 1px solid black;
+    }
+  </style>
+  <body>
+    <input id="file" type="file" accept="image/*" autocomplete="off" />
+    <input id="button" type="button" value="Dither" />
+    <br />
+    <canvas id="canvas"></canvas>
+    <script>
+      "use strict";
+      const s = atob(
+        "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" +
+          "wAALGAEAAAACAAAAAwAAAAAAAAAAAAAAAAAQAA=="
+      );
+      const b = new Uint8Array(s.length);
+      for (var i = 0; i < b.length; i++) b[i] = s.charCodeAt(i);
+      const cvs = document.getElementById("canvas");
+      const ctx = cvs.getContext("2d");
+      const img = new Image();
+      const was = {
+        mem(addr, len) {
+          return new Uint8ClampedArray(this.memory.buffer, addr, len);
+        },
+      };
+      WebAssembly.instantiate(b, {}).then(function ({ instance: i }) {
+        was.inst = i;
+        was.memory = i.exports.memory;
+        was.jsFree = i.exports.jsFree;
+        was.jsAlloc = i.exports.jsAlloc;
+        was.process = i.exports.process;
+      });
+      img.onload = function () {
+        cvs.width = this.width;
+        cvs.height = this.height;
+        ctx.drawImage(this, 0, 0);
+        URL.revokeObjectURL(this.src);
+      };
+      document.getElementById("file").onchange = function () {
+        if (this.files.length === 0) return;
+        if (this.files[0].type.startsWith("image")) {
+        } else return;
+        img.src = URL.createObjectURL(this.files[0]);
+      };
+      document.getElementById("button").onclick = function () {
+        const idat = ctx.getImageData(0, 0, cvs.width, cvs.height);
+        const data = idat.data;
+        const size = data.byteLength;
+        const addr = was.jsAlloc(size);
+        if (addr === 0) return;
+        was.mem(addr, size).set(data);
+        if (was.process(addr, cvs.width, cvs.height) === 0)
+          ctx.putImageData(new ImageData(was.mem(addr, size), cvs.width, cvs.height), 0, 0);
+        was.jsFree(addr, size);
+      };
+    </script>
+  </body>
+</html>
