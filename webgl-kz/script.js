@@ -181,6 +181,8 @@ requestAnimationFrame(function animate(currTime) {
         let newVel = vec3.add(vec3.create(), player.vel, [0, 0, -A_GRAVITY * timeleft]);
         let midVel = vec3.scale(vec3.create(), vec3.add(vec3.create(), player.vel, newVel), 0.5);
 
+        player.ground = false;
+
         for (const pg of world) {
             const [t, n] = pg.collide(player.body, midVel);
             if (t < +EPSILON) {
