@@ -185,7 +185,7 @@ requestAnimationFrame(function animate(currTime) {
 
         for (const pg of world) {
             const [t, n] = pg.collide(player.body, midVel);
-            if (t < +EPSILON) {
+            if (Number.isFinite(t) && t < +EPSILON) {
                 midVel = clipNormal(n, midVel);
                 newVel = clipNormal(n, newVel);
                 if (Math.acos(vec3.dot(n, [0, 0, 1])) < glMatrix.toRadian(30.0))
@@ -198,7 +198,7 @@ requestAnimationFrame(function animate(currTime) {
         let minTime = timeleft;
         for (const pg of world) {
             const [t, n] = pg.collide(player.body, midVel);
-            if (t > +EPSILON)
+            if (Number.isFinite(t) && t > +EPSILON)
                 minTime = Math.min(minTime, t);
         }
 
