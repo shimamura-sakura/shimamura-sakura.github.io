@@ -1,6 +1,6 @@
 'use strict';
 
-const EPSILON = Number.EPSILON;
+const EPSILON = Math.pow(2, -10);
 
 class Plane3D {
     constructor (p1, p2, p3) {
@@ -14,8 +14,8 @@ class Plane3D {
         const ndis = vec3.dot(this.vn, p) - this.d0;
         const nvec = vec3.dot(this.vn, v);
         if (ndis < -EPSILON) return ndis;
-        if (ndis < +EPSILON) return 0;
         if (nvec > -EPSILON) return Infinity;
+        if (ndis < +EPSILON) return 0;
         return ndis / -nvec;
     }
 }
@@ -40,28 +40,44 @@ class Body3D {
         const f0 = this.faces;
         const p1 = that.points;
         const f1 = that.faces;
-        let max_dt = -Infinity;
-        let normal = null;
+
+        let t_f0 = -Infinity;
+        let n_f0 = null;
         for (const f of f0) {
             let min = Infinity;
             for (const p of p1)
                 min = Math.min(min, f.timeTouch(p, v));
-            if (min - max_dt > -EPSILON) {
-                max_dt = min;
-                normal = f.vn;
+
+            if (-EPSILON <= t_f0 && t_f0 <= 0 && -EPSILON <= min && min <= 0)
+                return [Infinity, null];
+
+            if (min >= t_f0) {
+                t_f0 = min;
+                n_f0 = f.vn;
             }
         }
+
+        let t_f1 = -Infinity;
+        let n_f1 = null;
         const negv = vec3.negate(vec3.create(), v);
         for (const f of f1) {
             let min = Infinity;
             for (const p of p0)
                 min = Math.min(min, f.timeTouch(p, negv));
-            if (min - max_dt > -EPSILON) {
-                max_dt = min;
-                normal = vec3.negate(vec3.create(), f.vn);
+
+            if (-EPSILON <= t_f1 && t_f1 <= 0 && -EPSILON <= min && min <= 0)
+                return [Infinity, null];
+
+            if (min >= t_f1) {
+                t_f1 = min;
+                n_f1 = vec3.negate(vec3.create(), f.vn);
             }
         }
-        return [max_dt, normal];
+
+        if (t_f0 >= t_f1)
+            return [t_f0, n_f0];
+        else
+            return [t_f1, n_f1];
     }
 }
 

@@ -71,7 +71,7 @@ let player = {
     vel: vec3.fromValues(0, 0, 0),
     yaw: +45.0,
     pit: -20.0,
-    keys: { w: false, a: false, s: false, d: false, ' ': false },
+    keys: { w: false, a: false, s: false, d: false, ' ': false, z: false },
     body: new Body3D([
         [0, 0, +0], [32, 0, +0], [32, 32, +0], [0, 32, +0],
         [0, 0, 72], [32, 0, 72], [32, 32, 72], [0, 32, 72]], CUBE_INDICES).move([-16, -16, 0]),
@@ -116,6 +116,7 @@ function evKeyDn(ev) {
         case 's':
         case 'd':
         case ' ':
+        case 'z':
             player.keys[key] = true;
             ev.preventDefault();
             break;
@@ -133,20 +134,22 @@ function evKeyUp(ev) {
         case 's':
         case 'd':
         case ' ':
+        case 'z':
             player.keys[key] = false;
             ev.preventDefault();
             break;
     }
 }
 
-function updateText(fps, iter_cnt, timeleft) {
+function updateText(fps, additional) {
     document.getElementById('text').innerText =
         `fps: ${fps.toFixed(2)}\n` +
         `pos: ${player.pos[0].toFixed(3)} ${player.pos[1].toFixed(3)} ${player.pos[2].toFixed(3)}\n` +
         `vel: ${player.vel[0].toFixed(3)} ${player.vel[1].toFixed(3)} ${player.vel[2].toFixed(3)}\n` +
         `yaw: ${player.yaw.toFixed(3)} pitch: ${player.pit.toFixed(3)}\n` +
-        `spd: ${vec2.length([player.vel[0], player.vel[1]]).toFixed(2)}\n` +
-        `cnt: ${iter_cnt} timeleft: ${timeleft}`;
+        `spd: ${vec2.length([player.vel[0], player.vel[1]]).toFixed(2)}\n` + additional;
+    if (player.keys.z)
+        console.log(additional);
 }
 
 // Game Loop
@@ -175,6 +178,7 @@ requestAnimationFrame(function animate(currTime) {
 
     let timeleft = dt;
     let iter_cnt = 0;
+    let normals = [];
 
     for (; timeleft > 0 && iter_cnt < 100; iter_cnt++) {
 
@@ -185,11 +189,15 @@ requestAnimationFrame(function animate(currTime) {
 
         for (const pg of world) {
             const [t, n] = pg.collide(player.body, midVel);
-            if (Number.isFinite(t) && t < +EPSILON) {
+            if (Number.isFinite(t) && t <= 0) {
+
+                player.move(vec3.scale(vec3.create(), n, -t));
                 midVel = clipNormal(n, midVel);
                 newVel = clipNormal(n, newVel);
+
                 if (Math.acos(vec3.dot(n, [0, 0, 1])) < glMatrix.toRadian(30.0))
                     player.ground = true;
+                normals.push(`${n[0]} ${n[1]} ${n[2]}`);
             }
         }
 
@@ -198,7 +206,7 @@ requestAnimationFrame(function animate(currTime) {
         let minTime = timeleft;
         for (const pg of world) {
             const [t, n] = pg.collide(player.body, midVel);
-            if (Number.isFinite(t) && t > +EPSILON)
+            if (Number.isFinite(t) && t > 0)
                 minTime = Math.min(minTime, t);
         }
 
@@ -207,7 +215,7 @@ requestAnimationFrame(function animate(currTime) {
         timeleft -= minTime;
     }
 
-    updateText(1.0 / dt, iter_cnt, timeleft);
+    updateText(1.0 / dt, `iterates: ${iter_cnt}\n` + normals.join('\n'));
     requestAnimationFrame(animate);
 });
 
