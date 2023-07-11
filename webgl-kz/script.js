@@ -54,35 +54,39 @@ function setCamera([x, y, z], yaw, pitch) {
 }
 
 // Const
-const AIR_SPEED = 30;
-const GND_SPEED = 250;
-const MAX_SPEED = 320;
-const JMP_SPEED = 301.993377;
-const GND_FRICS = MAX_SPEED * 5.0;
-const MAX_ACCEL = MAX_SPEED * 10.0;
-const AIR_ACCEL = MAX_SPEED * 100.0;
+const H_DUCK = 54;
+const H_STAND = 72;
+const EYE_OFF = 8;
 const A_GRAVITY = 800;
+const JMP_SPEED = 301.993377;
 
 // Player
 
+function createPlayerBody(h) {
+    return new Body3D([
+        [0, 0, 0], [32, 0, 0], [32, 32, 0], [0, 32, 0],
+        [0, 0, h], [32, 0, h], [32, 32, h], [0, 32, h]], CUBE_INDICES).move([-16, -16, 0]);
+}
+
 let player = {
-    eye: vec3.fromValues(0, 0, 64),
     pos: vec3.fromValues(0, 0, 0),
     vel: vec3.fromValues(0, 0, 0),
     yaw: +45.0,
     pit: -20.0,
-    keys: { w: false, a: false, s: false, d: false, ' ': false, z: false },
-    body: new Body3D([
-        [0, 0, +0], [32, 0, +0], [32, 32, +0], [0, 32, +0],
-        [0, 0, 72], [32, 0, 72], [32, 32, 72], [0, 32, 72]], CUBE_INDICES).move([-16, -16, 0]),
+    keys: { w: false, a: false, s: false, d: false, ' ': false, shift: false, z: false },
+    body: createPlayerBody(72),
     ground: true,
+    ducked: false,
+    duckAmount: 0.0,
     move(d) {
         this.body.move(d);
-        this.eye = vec3.add(vec3.create(), this.eye, d);
         this.pos = vec3.add(vec3.create(), this.pos, d);
     },
     drawGL() {
-        setCamera(this.eye, this.yaw, this.pit);
+        setCamera(
+            vec3.add(vec3.create(), this.pos, [0, 0, (H_STAND + (H_DUCK - H_STAND) * this.duckAmount) - EYE_OFF]),
+            this.yaw, this.pit
+        );
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.drawArrays(gl.TRIANGLES, 0, g_vertices.length / 6);
     },
@@ -117,8 +121,13 @@ function evKeyDn(ev) {
         case 'd':
         case ' ':
         case 'z':
+        case 'shift':
             player.keys[key] = true;
             ev.preventDefault();
+            break;
+        case 'x':
+            player.keys[' '] = true;
+            player.keys.shift = true;
             break;
         default:
             console.log(key);
@@ -135,8 +144,13 @@ function evKeyUp(ev) {
         case 'd':
         case ' ':
         case 'z':
+        case 'shift':
             player.keys[key] = false;
             ev.preventDefault();
+            break;
+        case 'x':
+            player.keys[' '] = false;
+            player.keys.shift = false;
             break;
     }
 }
@@ -147,7 +161,9 @@ function updateText(fps, additional) {
         `pos: ${player.pos[0].toFixed(3)} ${player.pos[1].toFixed(3)} ${player.pos[2].toFixed(3)}\n` +
         `vel: ${player.vel[0].toFixed(3)} ${player.vel[1].toFixed(3)} ${player.vel[2].toFixed(3)}\n` +
         `yaw: ${player.yaw.toFixed(3)} pitch: ${player.pit.toFixed(3)}\n` +
-        `spd: ${vec2.length([player.vel[0], player.vel[1]]).toFixed(2)}\n` + additional;
+        `spd: ${vec2.length([player.vel[0], player.vel[1]]).toFixed(2)}\n` +
+        `ground: ${player.ground} duckAmout: ${player.duckAmount} ducked: ${player.ducked}\n` +
+        additional;
     if (player.keys.z)
         console.log(additional);
 }
@@ -155,6 +171,8 @@ function updateText(fps, additional) {
 // Game Loop
 
 let lastTime = performance.now();
+
+const DUCK_SPEED = 1.0 / 0.4 * 4;
 
 requestAnimationFrame(function animate(currTime) {
 
@@ -164,16 +182,101 @@ requestAnimationFrame(function animate(currTime) {
     player.drawGL();
 
     { // player control
-        const wishdir = yawToWishdir(player.yaw, player.keys);
+
         if (player.ground && player.keys[' ']) {
             player.ground = false;
             player.vel[2] = JMP_SPEED;
         }
+
+        if (player.keys.shift) { // want duck
+            if (!player.ducked) { // not ducked
+                if (player.ground)
+                    // on ground, add duck amount
+                    player.duckAmount = Math.min(1, player.duckAmount + DUCK_SPEED * dt);
+                else
+                    // air, immediate duck
+                    player.duckAmount = 1;
+                // should duck now
+                if (player.duckAmount >= 1.0) {
+                    if (player.ground)
+                        // ground: lower body at same pos
+                        player.body = createPlayerBody(H_DUCK).move(player.pos);
+                    else {
+                        // air: raise H_STAND - H_DUCK
+                        player.body = createPlayerBody(H_DUCK).move(player.pos);
+                        player.move([0, 0, H_STAND - H_DUCK]);
+                    }
+                    // update ducked state
+                    player.ducked = true;
+                }
+            }
+        } else if (player.duckAmount > 0) { // release duck when in duck
+
+            // move first, then set body
+            let unduckedBody = null;
+            let unduckedMove = null;
+
+            if (player.ground) {
+                if (!player.ducked) {
+                    // ducktap ?
+                    unduckedMove = [0, 0, (H_STAND - H_DUCK)];
+                    unduckedBody = createPlayerBody(H_STAND).move(player.pos).move(unduckedMove);
+                    player.duckAmount = 0;
+                    player.ground = false; // raised, must be false
+                } else {
+                    // ground: higher body at same pos
+                    unduckedMove = [0, 0, 0];
+                    unduckedBody = createPlayerBody(H_STAND).move(player.pos);
+                }
+            } else {
+                // air: down body
+                unduckedMove = [0, 0, -(H_STAND - H_DUCK)];
+                unduckedBody = createPlayerBody(H_STAND).move(player.pos).move(unduckedMove);
+            }
+
+            // collision detect
+            let canUnduck = true;
+            for (const pg of world) {
+                const [t, n] = pg.collide(unduckedBody, [0, 0, 0]);
+                if (t < -EPSILON) {
+                    canUnduck = false;
+                    break;
+                }
+            }
+
+            if (canUnduck) {
+                if (player.ground)
+                    // ground, decrease duck amount
+                    player.duckAmount = Math.max(0, player.duckAmount - DUCK_SPEED * dt);
+                else
+                    // air, immediate zero
+                    player.duckAmount = 0;
+                // should unduck now
+                if (player.duckAmount <= 0) {
+                    player.move(unduckedMove);
+                    player.body = unduckedBody;
+                    player.ducked = false;
+                }
+            } else {
+                // go back to ducked
+                if (player.ground)
+                    // on ground, add duck amount
+                    player.duckAmount = Math.min(1, player.duckAmount + DUCK_SPEED * dt);
+                else
+                    // air, immediate duck
+                    player.duckAmount = 1;
+            }
+        }
+
+        let wishvel;
+        wishvel = yawToWishdir(player.yaw, player.keys);
+        wishvel = finalWishVel(wishvel, player.ducked);
+
         const speed2d = [player.vel[0], player.vel[1]];
         if (player.ground)
-            [player.vel[0], player.vel[1]] = updateVelGnd(speed2d, wishdir, dt, true);
+            [player.vel[0], player.vel[1]] = updateVelGnd(speed2d, wishvel, dt);
         else
-            [player.vel[0], player.vel[1]] = updateVelAir(speed2d, wishdir, dt);
+            [player.vel[0], player.vel[1]] = updateVelAir(speed2d, wishvel, dt);
     }
 
     let timeleft = dt;
@@ -197,7 +300,7 @@ requestAnimationFrame(function animate(currTime) {
 
                 if (Math.acos(vec3.dot(n, [0, 0, 1])) < glMatrix.toRadian(30.0))
                     player.ground = true;
-                normals.push(`${n[0]} ${n[1]} ${n[2]}`);
+                normals.push(`${n[0]} ${n[1]} ${n[2]} `);
             }
         }
 
@@ -215,7 +318,7 @@ requestAnimationFrame(function animate(currTime) {
         timeleft -= minTime;
     }
 
-    updateText(1.0 / dt, `iterates: ${iter_cnt}\n` + normals.join('\n'));
+    updateText(1.0 / dt, `iterates: ${iter_cnt} \n` + normals.join('\n'));
     requestAnimationFrame(animate);
 });
 
@@ -247,23 +350,50 @@ function yawToWishdir(vYaw, keys) {
     return [wish_x, wish_y];
 }
 
+const SV_FRICTION = 5.0;
+const SV_ACCELERATE = 6.5;
+const SV_AIRACCELERATE = 100;
+const SV_STOPSPEED = 100;
+const SV_MAXSPEED = 250;
+
+const FRIC_KE = 1.0;
+const FRIC_EF = 1.0;
+const FRIC_K = SV_FRICTION * FRIC_KE * FRIC_EF;
+
+// https://www.jwchong.com/hl/movement.html
 function velFriction(vel, dt) {
-    const vlen = vec2.length(vel);
-    if (vlen <= 0.0) return vel;
-    return vec2.scale(vec2.create(), vel, Math.max(0, (vlen - GND_FRICS * dt) / vlen));
+    const spd = vec2.length(vel);
+    const tek = dt * SV_STOPSPEED * FRIC_K;
+    const low = Math.max(0.1, tek);
+    if (spd < low)
+        return [0, 0];
+    if (spd >= SV_STOPSPEED)
+        return vec2.scale(vec2.create(), vel, 1 - dt * FRIC_K);
+    return vec2.scale(vec2.create(), vel, 1 - tek / spd);
 }
 
-function updateVelGnd(vel, wishdir, dt, applyFric) {
-    wishdir = vec2.normalize(vec2.create(), wishdir);
-    if (applyFric) vel = velFriction(vel, dt);
-    const speed = vec2.dot(vel, wishdir);
-    const accel = Math.max(0, Math.min(MAX_ACCEL * dt, GND_SPEED - speed));
-    return vec2.scaleAndAdd(vec2.create(), vel, wishdir, accel);
+// https://www.jwchong.com/hl/player.html#fsu
+function finalWishVel(wishvel, ducked) {
+    const uwishvel = vec2.normalize(vec2.create(), wishvel);
+    const mwishvel = vec2.scale(vec2.create(), uwishvel, SV_MAXSPEED * (ducked ? 0.34 : 1));
+    return mwishvel;
 }
 
-function updateVelAir(vel, wishdir, dt) {
-    wishdir = vec2.normalize(vec2.create(), wishdir);
-    const speed = vec2.dot(vel, wishdir);
-    const accel = Math.max(0, Math.min(AIR_ACCEL * dt, AIR_SPEED - speed));
-    return vec2.scaleAndAdd(vec2.create(), vel, wishdir, accel);
+function velAccelerate(dt, accelerate, is_ground, vel, wishvel) {
+    const uwishvel = vec2.normalize(vec2.create(), wishvel);
+    const factor_M = Math.min(SV_MAXSPEED, vec2.length(wishvel));
+    const factor_L = is_ground ? factor_M : Math.min(30, factor_M);
+    const gamma_1 = FRIC_KE * dt * factor_M * accelerate;
+    const gamma_2 = factor_L - vec2.dot(vel, uwishvel);
+    const uwscale = gamma_2 <= 0 ? 0 : Math.min(gamma_1, gamma_2);
+    return vec2.scaleAndAdd(vec2.create(), vel, uwishvel, uwscale);
 }
+
+function updateVelGnd(vel, wishvel, dt) {
+    vel = velFriction(vel, dt);
+    return velAccelerate(dt, SV_ACCELERATE, true, vel, wishvel);
+}
+
+function updateVelAir(vel, wishvel, dt) {
+    return velAccelerate(dt, SV_AIRACCELERATE, false, vel, wishvel);
+};;;;;;
