@@ -217,16 +217,14 @@ requestAnimationFrame(function animate(currTime) {
             let unduckedMove = null;
 
             if (player.ground) {
-                if (!player.ducked) {
-                    // ducktap ?
-                    unduckedMove = [0, 0, (H_STAND - H_DUCK)];
-                    unduckedBody = createPlayerBody(H_STAND).move(player.pos).move(unduckedMove);
-                    player.duckAmount = 0;
-                    player.ground = false; // raised, must be false
-                } else {
+                if (player.ducked) {
                     // ground: higher body at same pos
                     unduckedMove = [0, 0, 0];
                     unduckedBody = createPlayerBody(H_STAND).move(player.pos);
+                } else {
+                    // ducktap ?
+                    unduckedMove = [0, 0, (H_STAND - H_DUCK)];
+                    unduckedBody = createPlayerBody(H_STAND).move(player.pos).move(unduckedMove);
                 }
             } else {
                 // air: down body
@@ -243,11 +241,13 @@ requestAnimationFrame(function animate(currTime) {
                     break;
                 }
             }
+            canUnduck |= !player.ducked;
 
             if (canUnduck) {
-                if (player.ground)
+                if (player.ground) {
                     // ground, decrease duck amount
                     player.duckAmount = Math.max(0, player.duckAmount - DUCK_SPEED * dt);
+                }
                 else
                     // air, immediate zero
                     player.duckAmount = 0;
@@ -318,7 +318,7 @@ requestAnimationFrame(function animate(currTime) {
         timeleft -= minTime;
     }
 
-    updateText(1.0 / dt, `iterates: ${iter_cnt} \n` + normals.join('\n'));
+    updateText(1.0 / dt, ''); // `iterates: ${iter_cnt} \n` + normals.join('\n'));
     requestAnimationFrame(animate);
 });
 
