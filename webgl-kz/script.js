@@ -326,6 +326,11 @@ requestAnimationFrame(function animate(currTime) {
             let wish3d = player.wishvel = yawPitchWish3d(player.yaw, player.pit, player.keys, [450, 450, 450, 450]);
             let wish2d = walkWishvel(wish3d, player.ducked);
             const speed2d = [player.vel[0], player.vel[1]];
+            // JUMP
+            if (player.ground && player.keys[' ']) {
+                player.ground = false;
+                player.vel[2] += JMP_SPEED;
+            }
             if (player.ground)
                 [player.vel[0], player.vel[1]] = updateVelGnd(speed2d, wish2d, dt);
             else
@@ -334,7 +339,6 @@ requestAnimationFrame(function animate(currTime) {
         }
 
         if (player.moveType === 'ladder') {
-
             let vec_u = yawPitchWish3d(player.yaw, player.pit, player.keys, [200, 200, 200, 200]);
             let vec_n = player.ladderNormal;
 
@@ -348,11 +352,12 @@ requestAnimationFrame(function animate(currTime) {
 
             if (player.keys[' '])
                 player.vel = vec3.scale(vec3.create(), vec_n, 270);
+            // JUMP
+            if (player.ground && player.keys[' ']) {
+                player.ground = false;
+                player.vel[2] += JMP_SPEED;
+            }
         }
-
-        // JUMP
-        if (player.ground && player.keys[' '])
-            player.vel[2] += JMP_SPEED;
     }
 
     let timeleft = dt;
