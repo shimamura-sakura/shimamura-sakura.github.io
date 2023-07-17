@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+  <meta charset="utf-8" />
+  <title>GL Game</title>
+  <style>
+    #container {
+      width: 1280px;
+      height: 720px;
+      position: relative;
+      display: inline-block;
+      border: 1px solid black;
+    }
+    #text {
+      position: absolute;
+      font-family: monospace;
+      font-size: 16px;
+      background-color: rgba(255, 255, 255, 80%);
+    }
+  </style>
+  <body>
+    <h1>GL Game</h1>
+    <div id="container">
+      <div id="text"></div>
+      <canvas id="canvas" width="1280" height="720"></canvas>
+    </div>
+    <script src="gl-matrix-min.js"></script>
+    <script src="physics.js"></script>
+    <script src="shader.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
