@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kana Practice</title>
+<style>
+  body {
+    margin: auto;
+    max-width: 10cm;
+    user-select: none;
+  }
+</style>
+
+<body>
+  Just download this page if you want to practice locally, it's only one html file.
+  <div style="text-align: center;">
+    <div id="k" style="font-size: 2cm">あ</div>
+    <div id="a" style="font-size: 1cm;background-color:white">a</div>
+    <form id="f"><label>Answer <input id="i" size="3" maxlength="3" autocomplete="off"></label></form>
+  </div>
+  <script>
+const D = document;
+const B = D.body;
+const I = D.getElementById('i');
+const K = D.getElementById('k');
+const A = D.getElementById('a');
+
+const chks = [];
+const Hkan = 'あいうえお,かきくけこ,さしすせそ,たちつてと,なにぬねの,はひふへほ,まみむめも,や-ゆ-よ,らりるれろ,わ---を,ん,がぎぐげご,ざじずぜぞ,だぢづでど,ばびぶべぼ,ぱぴぷぺぽ';
+const Kkan = 'アイウエオ,カキクケコ,サシスセソ,タチツテト,ナニヌネノ,ハヒフヘホ,マミムメモ,ヤ-ユ-ヨ,ラリルレロ,ワ---ヲ,ン,ガギグゲゴ,ザジズゼゾ,ダヂヅデド,バビブベボ,パピプペポ';
+const roma = 'a,i,u,e,o,ka,ki,ku,ke,ko,sa,si/shi,su,se,so,ta,ti/chi,tu/tsu,te,to,na,ni,nu,ne,no,ha,hi,fu/hu,he,ho,ma,mi,mu,me,mo,ya,yu,yo,ra,ri,ru,re,ro,wa,wo/o,n,'
+    + 'ga,gi,gu,ge,go,za,zi/ji,zu,ze,zo,da,di/zi/ji,du/zu,de,do,ba,bi,bu,be,bo,pa,pi,pu,pe,po';
+
+function createList(all, kana, roma) {
+    roma = Array.from(roma).reverse();
+    for (const k of kana) {
+        const lst = [];
+        const btn = B.appendChild(D.createElement('button'));
+        for (const r of k) {
+            if (r == '-') continue;
+            const label = B.appendChild(D.createElement('label'));
+            label.textContent = r;
+            const check = label.appendChild(D.createElement('input'));
+            check.type = 'checkbox', check.checked = true;
+            check.pair = [r, roma.pop().split('/').join(', ')];
+            lst.push(check), all.push(check);
+        }
+        B.appendChild(D.createElement('br'));
+        btn.textContent = 'Toggle';
+        btn.onclick = function () { const b = !lst[0].checked; lst.forEach(c => c.checked = b); };
+    }
+}
+
+let answered = true;
+
+function newPuzzle() {
+    answered = false, I.value = '', A.style.color = 'white';
+    const list = chks.filter(c => c.checked).map(c => c.pair);
+    const rand = Math.floor(Math.random() * list.length);
+    list.push(['あ', ['a']]);
+    [K.textContent, A.textContent] = list[rand];
+}
+
+document.getElementById('f').onsubmit = function (ev) {
+    if (!answered) {
+        answered = true;
+        const ans = A.textContent.split(', ');
+        const inp = I.value.toLowerCase().trim();
+        if (ans.every(a => inp != a) /* wrong */) {
+            A.style.color = 'red';
+            setTimeout(newPuzzle, 2000);
+        } else {
+            A.style.color = 'green';
+            setTimeout(newPuzzle, 200);
+        }
+    }
+    return false;
+};
+
+B.appendChild(D.createElement('div')).textContent = 'Hiragana';
+createList(chks, Hkan.split(','), roma.split(','));
+B.appendChild(D.createElement('div')).textContent = 'Katakana';
+createList(chks, Kkan.split(','), roma.split(','));
+newPuzzle();
+  </script>
+</body>
+
+</html>
