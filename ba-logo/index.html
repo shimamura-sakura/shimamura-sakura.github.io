@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<meta charset="utf-8">
+<title>Blue Archive Logo</title>
+<style>
+    canvas {
+        border: 1px solid black;
+    }
+</style>
+
+<body>
+    <h1 style="font-family: ba-rog, ba-glo">BA Logo</h1>
+    <label>左<input id="txtL" autocomplete="off" value="Blue"></label>
+    <label>色<input id="clrL" autocomplete="off" value="#128AFA"></label>
+    <label>右<input id="txtR" autocomplete="off" value="Archive"></label>
+    <label>色<input id="clrR" autocomplete="off" value="#2B2B2B"></label><br />
+    <label>大<input id="size" autocomplete="off" value="84"></label>
+    <label>背<input id="back" autocomplete="off" value="#ffffff"></label>
+    <label>字<input id="font" autocomplete="off" value=""></label>
+    <label>环X<input id="adjX" autocomplete="off" value="0" size="3"></label>
+    <label>环Y<input id="adjY" autocomplete="off" value="0" size="3"></label>
+    <div>右键或长按图片可保存</div><canvas id="canvas"></canvas>
+    <script src="ba-logo.js"></script>
+    <script>
+        const cvs = document.getElementById('canvas');
+        const ctx = cvs.getContext('2d');
+        const e_txtL = document.getElementById('txtL');
+        const e_clrL = document.getElementById('clrL');
+        const e_txtR = document.getElementById('txtR');
+        const e_clrR = document.getElementById('clrR');
+        const e_size = document.getElementById('size');
+        const e_back = document.getElementById('back');
+        const e_font = document.getElementById('font');
+        const e_adjX = document.getElementById('adjX');
+        const e_adjY = document.getElementById('adjY');
+        function baLogoUpdate() {
+            const txtL = e_txtL.value;
+            const clrL = e_clrL.value;
+            const txtR = e_txtR.value;
+            const clrR = e_clrR.value;
+            const size = Math.min(500, Math.max(20, parseFloat(e_size.value) || 84));
+            const back = e_back.value || null;
+            const font = e_font.value || BALogo.font;
+            const adjX = Math.min(500, Math.max(-500, parseFloat(e_adjX.value) || 0));
+            const adjY = Math.min(500, Math.max(-500, parseFloat(e_adjY.value) || 0));
+            const p = baPlanDraw(txtL, txtR, font, size, 0.4, adjX, adjY);
+            cvs.width = p.w;
+            cvs.height = p.h;
+            ctx.clearRect(0, 0, p.w, p.h);
+            if (back) ctx.fillStyle = back, ctx.fillRect(0, 0, p.w, p.h);
+            p.draw(ctx, 0, 0, clrL, clrR);
+        }
+        BALogo.load.then(() => {
+            baLogoUpdate();
+            for (const e of [
+                e_txtL, e_clrL, e_txtR, e_clrR, e_size,
+                e_back, e_font, e_adjX, e_adjY]
+            ) e.oninput = baLogoUpdate;
+        });
+    </script>
+</body>
+
+</html>
