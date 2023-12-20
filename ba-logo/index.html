@@ -3,6 +3,22 @@
 <meta charset="utf-8">
 <title>Blue Archive Logo</title>
 <style>
+    @font-face {
+        font-family: ba-rog;
+        src: url('assets/RoGSanSrfStd-Bd.otf') format('woff2');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+    }
+
+    @font-face {
+        font-family: ba-glo;
+        src: url("assets/GlowSansSC-Normal-Heavy.otf") format("woff2");
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+    }
+
     canvas {
         border: 1px solid black;
     }
@@ -19,7 +35,8 @@
     <label>字<input id="font" autocomplete="off" value=""></label>
     <label>环X<input id="adjX" autocomplete="off" value="0" size="3"></label>
     <label>环Y<input id="adjY" autocomplete="off" value="0" size="3"></label>
-    <div>右键或长按图片可保存</div><canvas id="canvas"></canvas>
+    <div>右键图片可保存，或按此按钮<button onclick="savePicture()">保存</button></div>
+    <canvas id="canvas"></canvas>
     <script src="ba-logo.js"></script>
     <script>
         const cvs = document.getElementById('canvas');
@@ -33,6 +50,8 @@
         const e_font = document.getElementById('font');
         const e_adjX = document.getElementById('adjX');
         const e_adjY = document.getElementById('adjY');
+        const e_link = document.createElement('a');
+        let l_blob = null;
         function baLogoUpdate() {
             const txtL = e_txtL.value;
             const clrL = e_clrL.value;
@@ -49,6 +68,14 @@
             ctx.clearRect(0, 0, p.w, p.h);
             if (back) ctx.fillStyle = back, ctx.fillRect(0, 0, p.w, p.h);
             p.draw(ctx, 0, 0, clrL, clrR);
+        }
+        function savePicture() {
+            cvs.toBlob(function (blob) {
+                if (l_blob) URL.revokeObjectURL(l_blob), l_blob = null;
+                l_blob = e_link.href = URL.createObjectURL(blob);
+                e_link.download = '';
+                e_link.click();
+            });
         }
         BALogo.load.then(() => {
             baLogoUpdate();
