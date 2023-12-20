@@ -6,13 +6,14 @@ const BALogo = {
     crux: baLoadImage('assets/cross.png'),
     fRoG: new FontFace('ba-rog', 'url(assets/RoGSanSrfStd-Bd.otf)').load(),
     fGlo: new FontFace('ba-glo', 'url(assets/GlowSansSC-Normal-Heavy.otf)').load(),
-    meas: new OffscreenCanvas(0, 0).getContext('2d'),
+    mcvs: new OffscreenCanvas(0, 0),
     padd: 0,
     size: 84,
     colorL: '#128AFA',
     colorR: '#2B2B2B',
 };
 
+BALogo.mctx = BALogo.mcvs.getContext('2d');
 BALogo.load = Promise.all([BALogo.halo.promise, BALogo.crux.promise, BALogo.fRoG, BALogo.fGlo]);
 
 function baLoadImage(src) {
@@ -26,12 +27,12 @@ function baLoadImage(src) {
 };
 
 function baPlanDraw(textL, textR, font, fontSize, tilt, haloX, haloY, mCtx) {
-    const meas = mCtx || BALogo.meas;
-    const fstr = meas.font = `${fontSize}px ${font}`;
+    const mctx = mCtx || BALogo.mctx;
+    const fstr = mctx.font = `${fontSize}px ${font}`;
     const mods = fontSize / 84 * 0.5; // default 84px font
-    const txlW = meas.measureText(textL).width; // text: [0, 0] -> [txtW, txtH];
-    const txrW = meas.measureText(textR).width;
-    const metS = meas.measureText(textL + textR);
+    const txlW = mctx.measureText(textL).width; // text: [0, 0] -> [txtW, txtH];
+    const txrW = mctx.measureText(textR).width;
+    const metS = mctx.measureText(textL + textR);
     const tRfY = metS.fontBoundingBoxAscent;
     const txtD = metS.fontBoundingBoxDescent;
     const txtW = txlW + txrW + tRfY * Math.abs(tilt);
@@ -64,6 +65,18 @@ function baPlanDraw(textL, textR, font, fontSize, tilt, haloX, haloY, mCtx) {
             ctx.setTransform(mods, 0, 0, mods, posX + halX, posY + halY);
             ctx.drawImage(BALogo.halo, 0, 0);
             ctx.drawImage(BALogo.crux, 0, 0);
+        },
+        drawBlur(ctx, posX, posY, clrl, clrr, blurAmt, blurClr, mCvs) {
+            const mcvs = mCvs ? mCvs : BALogo.mcvs;
+            const mctx = mCvs ? mCvs.getContext('2d') : BALogo.mctx;
+            mcvs.width = this.w;
+            mcvs.height = this.h;
+            this.draw(mctx, 0, 0, clrl, clrr);
+            ctx.shadowBlur = blurAmt;
+            ctx.shadowColor = blurClr;
+            ctx.drawImage(mcvs, posX, posY);
+            ctx.shadowBlur = null;
+            ctx.shadowColor = null;
         }
     };
 }

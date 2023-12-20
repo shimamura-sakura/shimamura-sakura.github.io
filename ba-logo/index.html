@@ -34,7 +34,10 @@
     <label>背<input id="back" autocomplete="off" value="#ffffff"></label>
     <label>字<input id="font" autocomplete="off" value=""></label>
     <label>环X<input id="adjX" autocomplete="off" value="0" size="3"></label>
-    <label>环Y<input id="adjY" autocomplete="off" value="0" size="3"></label>
+    <label>环Y<input id="adjY" autocomplete="off" value="0" size="3"></label><br />
+    <label>发光<input type="checkbox" id="blur" autocomplete="off" checked></label>
+    <label>光量<input id="bAmt" autocomplete="off" value="20"></label>
+    <label>光色<input id="bClr" autocomplete="off" value="skyblue"></label>
     <div>右键图片可保存，或按此按钮<button onclick="savePicture()">保存</button></div>
     <canvas id="canvas"></canvas>
     <script src="ba-logo.js"></script>
@@ -50,6 +53,9 @@
         const e_font = document.getElementById('font');
         const e_adjX = document.getElementById('adjX');
         const e_adjY = document.getElementById('adjY');
+        const e_blur = document.getElementById('blur');
+        const e_bAmt = document.getElementById('bAmt');
+        const e_bClr = document.getElementById('bClr');
         const e_link = document.createElement('a');
         let l_blob = null;
         function baLogoUpdate() {
@@ -62,12 +68,15 @@
             const font = e_font.value || BALogo.font;
             const adjX = Math.min(500, Math.max(-500, parseFloat(e_adjX.value) || 0));
             const adjY = Math.min(500, Math.max(-500, parseFloat(e_adjY.value) || 0));
+            const bAmt = Math.min(100, Math.max(1, parseFloat(e_bAmt.value) || 0));
+            const bClr = e_bClr.value;
             const p = baPlanDraw(txtL, txtR, font, size, 0.4, adjX, adjY);
             cvs.width = p.w;
             cvs.height = p.h;
             ctx.clearRect(0, 0, p.w, p.h);
             if (back) ctx.fillStyle = back, ctx.fillRect(0, 0, p.w, p.h);
-            p.draw(ctx, 0, 0, clrL, clrR);
+            if (e_blur.checked) p.drawBlur(ctx, 0, 0, clrL, clrR, bAmt, bClr);
+            else p.draw(ctx, 0, 0, clrL, clrR);
         }
         function savePicture() {
             cvs.toBlob(function (blob) {
@@ -81,7 +90,7 @@
             baLogoUpdate();
             for (const e of [
                 e_txtL, e_clrL, e_txtR, e_clrR, e_size,
-                e_back, e_font, e_adjX, e_adjY]
+                e_back, e_font, e_adjX, e_adjY, e_blur, e_bClr, e_bAmt]
             ) e.oninput = baLogoUpdate;
         });
     </script>
