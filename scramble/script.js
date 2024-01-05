@@ -17,17 +17,19 @@ document.getElementById('input').onchange = async function () {
         cvs.height = currImage.height;
         ctx.clearRect(0, 0, cvs.width, cvs.height);
         ctx.drawImage(currImage, 0, 0);
-        gotoOriginal();
         await tryUnscramble();
+        btnRst.disabled = true;
+        createLink();
     } catch {
         alert('can\'t load image');
     }
 };
 
-function gotoOriginal() {
+function createLink() {
     if (dlLink.href) URL.revokeObjectURL(dlLink.href);
-    dlLink.removeAttribute('href');
-    btnRst.disabled = true;
+    cvs.toBlob(function (blob) {
+        dlLink.href = URL.createObjectURL(blob);
+    });
 }
 
 btnRst.onclick = function () {
@@ -39,7 +41,8 @@ btnRst.onclick = function () {
     cvs.height = currImage.height;
     ctx.clearRect(0, 0, cvs.width, cvs.height);
     ctx.drawImage(currImage, 0, 0);
-    gotoOriginal();
+    btnRst.disabled = true;
+    createLink();
 };
 
 document.getElementById('btn_scr').onclick = function () {
@@ -67,10 +70,8 @@ document.getElementById('btn_scr').onclick = function () {
         const h = Math.min(8, currImage.height - sy);
         ctx.drawImage(currImage, sx, sy, w, h, dx, dy + metaHeight, w, h);
     }
-    cvs.toBlob(function (blob) {
-        dlLink.href = URL.createObjectURL(blob);
-        btnRst.disabled = false;
-    });
+    createLink();
+    btnRst.disabled = false;
 };
 
 async function tryUnscramble() {
@@ -92,7 +93,6 @@ async function tryUnscramble() {
         const h = Math.min(8, height - sy);
         ctx.drawImage(currImage, dx, dy + metaHeight, w, h, sx, sy, w, h);
     }
-    gotoOriginal();
     currImage = await createImageBitmap(cvs);
 }
 
