@@ -1,14 +1,14 @@
 'use strict';
 /** @type{HTMLCanvasElement} */
 const cvs = document.getElementById('canvas');
-const ctx = cvs.getContext('2d', { alpha: false });
+const ctx = cvs.getContext('2d');
 const btnRst = document.getElementById('btn_rst');
 const dlLink = document.getElementById('link');
 const META_MAGIC = 0x494d5367; // "IMSC"
 const META_NINTS = 9;
 btnRst.disabled = true;
 dlLink.style.display = 'none';
-ctx.fillStyle = 'white', ctx.fillRect(0, 0, cvs.width, cvs.height);
+ctx.clearRect(0, 0, cvs.width, cvs.height);
 /** @type{ImageBitmap} */
 var currImage = null;
 var isOriginal = true;
@@ -21,7 +21,7 @@ document.getElementById('input').onchange = async function () {
         await checkAndUnscramble();
         cvs.width = currImage.width;
         cvs.height = currImage.height;
-        ctx.fillStyle = 'white', ctx.fillRect(0, 0, cvs.width, cvs.height);
+        ctx.clearRect(0, 0, cvs.width, cvs.height);
         ctx.drawImage(currImage, 0, 0);
         btnRst.disabled = true;
         afterDraw();
@@ -49,7 +49,7 @@ btnRst.onclick = function () {
     }
     cvs.width = currImage.width;
     cvs.height = currImage.height;
-    ctx.fillStyle = 'white', ctx.fillRect(0, 0, cvs.width, cvs.height);
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
     ctx.drawImage(currImage, 0, 0);
     btnRst.disabled = true;
     isOriginal = true;
@@ -79,7 +79,7 @@ async function checkAndUnscramble() {
     const plan = makeScramble(width, height, sfc32New(...seed));
     cvs.width = width;
     cvs.height = height;
-    ctx.fillStyle = 'white', ctx.fillRect(0, 0, cvs.width, cvs.height);
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
     for (var i = 0; i < plan.nBlocks; i++) {
         const [sx, sy] = plan.origLeftTops[i];
         const [dx, dy] = plan.shufLeftTops[i];
@@ -107,7 +107,7 @@ document.getElementById('btn_scr').onclick = function () {
     meta[8] = hashMeta(meta);
     cvs.width = plan.newWidth;
     cvs.height = plan.newHeight + metaHeight;
-    ctx.fillStyle = 'white', ctx.fillRect(0, 0, cvs.width, cvs.height);
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
     drawMetadata(ctx, cvs.width, meta);
     for (var i = 0; i < plan.nBlocks; i++) {
         const [sx, sy] = plan.origLeftTops[i];
