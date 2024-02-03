@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1" />
+<title>Link Saver</title>
+<style>
+    body {
+        font-family: monospace;
+    }
+
+    section[data-name] {
+        border: 1px solid black;
+        padding: 0.5em;
+        margin: 0 0 1em 0;
+        position: relative;
+        display: grid;
+        grid-template-columns: 100%;
+    }
+
+    section[data-name]::before {
+        background: white;
+        content: attr(data-name);
+        position: absolute;
+        top: -.8em;
+        left: 0.5em;
+    }
+
+    input {
+        width: 100%;
+    }
+</style>
+
+<body>
+    <h1>Link Saver</h1>
+    <section data-name="Plain Text Input">
+        <textarea id="text_plain" style="resize: none;" autocomplete="off"></textarea>
+        <div><button id="btn_tryparse">Try Parse</button></div>
+    </section>
+    <section data-name="Form Input">
+        <label>Link:<input id="input_link" autocomplete="off"></label>
+        <label>Tags:<input id="input_tags" autocomplete="off"></label>
+        <div><button id="btn_save">Save</button></div>
+    </section>
+    <section data-name="Saved Links">
+        <table id="table_saved"></table>
+    </section>
+    <script src="index.js"></script>
+</body>
+
+</html>
