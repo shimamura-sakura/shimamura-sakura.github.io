@@ -40,12 +40,18 @@
     <h1>Link Saver</h1>
     <section data-name="Plain Text Input">
         <textarea id="text_plain" style="resize: none;" autocomplete="off" rows="5"></textarea>
-        <div><button id="btn_tryparse">Try Parse</button></div>
+        <div>
+            <button id="btn_tryparse">Try Parse</button>
+            <button onclick="document.getElementById('text_plain').value=''">Clear</button>
+        </div>
     </section>
     <section data-name="Form Input">
         <div class="label_input"><label for="input_link">Link:</label><input id="input_link" autocomplete="off"></div>
         <div class="label_input"><label for="input_tags">Tags:</label><input id="input_tags" autocomplete="off"></div>
-        <div><button id="btn_save">Save</button></div>
+        <div>
+            <button id="btn_save">Save</button>
+            <button id="btn_formclear">Clear</button>
+        </div>
     </section>
     <section data-name="Saved Links">
         <table id="table_saved"></table>

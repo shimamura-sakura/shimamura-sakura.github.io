@@ -49,6 +49,10 @@ document.getElementById('btn_tryparse').addEventListener('click', function () {
 let g_linkData = {};
 const e_inputlink = document.getElementById('input_link');
 const e_inputtags = document.getElementById('input_tags');
+document.getElementById('btn_formclear').addEventListener('click', function () {
+    e_inputlink.value = '';
+    e_inputtags.value = '';
+});
 const e_tablesave = document.getElementById('table_saved');
 function fillForm(link, tag) {
     e_inputlink.value = link;
