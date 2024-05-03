@@ -1,158 +1,83 @@
 'use strict';
-/** @type{HTMLCanvasElement} */
-const cvs = document.getElementById('canvas');
-const ctx = cvs.getContext('2d');
+
+const META_LENGTH = 7;
+const eInput = document.getElementById('input');
+const btnScr = document.getElementById('btn_scr');
 const btnRst = document.getElementById('btn_rst');
-const dlLink = document.getElementById('link');
-const META_MAGIC = 0x494d5367; // "IMSC"
-const META_NINTS = 9;
-btnRst.disabled = true;
-dlLink.style.display = 'none';
-ctx.clearRect(0, 0, cvs.width, cvs.height);
-/** @type{ImageBitmap} */
-var currImage = null;
-var isOriginal = true;
-var loadOriginal = true;
-document.getElementById('input').onchange = async function () {
-    try {
-        currImage = await createImageBitmap(this.files[0]);
-        isOriginal = true;
-        loadOriginal = true;
-        await checkAndUnscramble();
-        cvs.width = currImage.width;
-        cvs.height = currImage.height;
-        ctx.clearRect(0, 0, cvs.width, cvs.height);
-        ctx.drawImage(currImage, 0, 0);
-        btnRst.disabled = true;
-        afterDraw();
-    } catch {
-        alert('can\'t load image');
-    }
+const picLnk = document.getElementById('link');
+const cvs = document.getElementById('canvas');
+const dvs = new OffscreenCanvas(0, 0);
+const ctx = cvs.getContext('2d');
+const dtx = dvs.getContext('2d');
+const tmp = new Image();
+
+eInput.onchange = function () {
+    if (this.files[0]?.type.startsWith('image'))
+        tmp.src = URL.createObjectURL(this.files[0]);
 };
-function afterDraw() {
-    dlLink.style.display = 'none';
-    if (!(loadOriginal && isOriginal)) cvs.toBlob(function (blob) {
-        if (dlLink.href) {
-            URL.revokeObjectURL(dlLink.href);
-            console.log('revoke', dlLink.href);
-            dlLink.removeAttribute('href');
-        }
-        dlLink.href = URL.createObjectURL(blob);
-        dlLink.style.display = 'inline';
-        console.log('create', dlLink.href);
-    });
-}
-btnRst.onclick = function () {
-    if (currImage === null) {
-        alert('load an image first');
-        return;
-    }
-    cvs.width = currImage.width;
-    cvs.height = currImage.height;
+
+tmp.onload = function () {
+    URL.revokeObjectURL(this.src);
+    cvs.width = this.width;
+    cvs.height = this.height;
     ctx.clearRect(0, 0, cvs.width, cvs.height);
-    ctx.drawImage(currImage, 0, 0);
-    btnRst.disabled = true;
-    isOriginal = true;
-    afterDraw();
+    ctx.drawImage(this, 0, 0);
+    tryUnscramble();
+    dvs.width = cvs.width;
+    dvs.height = cvs.height;
+    dtx.clearRect(0, 0, dvs.width, dvs.height);
+    dtx.drawImage(cvs, 0, 0);
+    updateLink();
 };
-async function checkAndUnscramble() {
-    if (currImage.width % 8 != 0) return;
-    if (currImage.height % 8 != 0) return;
-    cvs.width = currImage.width / 8;
-    cvs.height = currImage.height / 8;
-    if (cvs.width * cvs.height < META_NINTS * 8) return;
-    ctx.drawImage(currImage, 0, 0, cvs.width, cvs.height);
-    const metaPixs = ctx.getImageData(0, 0, cvs.width, Math.ceil(META_NINTS * 8 / cvs.width)).data.subarray(0, META_NINTS * 4 * 32);
-    const metaData = new Uint32Array(META_NINTS);
-    for (var i = metaPixs.length - 1, j, x, k = metaData.length - 1; i >= 0; metaData[k--] = x) {
-        for (x = 0, j = 0; j < 32; j++, i -= 4) {
-            x <<= 1;
-            x += (metaPixs[i - 1] + metaPixs[i - 2] + metaPixs[i - 3]) < 384 ? 1 : 0;
-        }
-    }
-    if (metaData[0] !== META_MAGIC) return;
-    if (metaData[8] !== hashMeta(metaData)) return alert('seems to be a broken scrambled image');
-    const width = metaData[2];
-    const height = metaData[3];
-    const metaHeight = metaData[1];
-    const seed = metaData.subarray(4, 8);
-    const plan = makeScramble(width, height, sfc32New(...seed));
-    cvs.width = width;
-    cvs.height = height;
-    ctx.clearRect(0, 0, cvs.width, cvs.height);
-    for (var i = 0; i < plan.nBlocks; i++) {
-        const [sx, sy] = plan.origLeftTops[i];
-        const [dx, dy] = plan.shufLeftTops[i];
-        const w = Math.min(8, width - sx);
-        const h = Math.min(8, height - sy);
-        ctx.drawImage(currImage, dx, dy + metaHeight, w, h, sx, sy, w, h);
-    }
-    currImage = await createImageBitmap(cvs);
-    loadOriginal = false;
+
+function makeScramble(width, height, rngFuncObj) {
+    const newW = (width + 7) & ~7;
+    const newH = (height + 7) & ~7;
+    const aLeftTops = [];
+    for (let x = 0; x < width; x += 8)
+        for (let y = 0; y < height; y += 8)
+            aLeftTops.push([x, y]);
+    const bLeftTops = aLeftTops.slice();
+    shuffle(bLeftTops, rngFuncObj);
+    return { newW, newH, aLeftTops, bLeftTops };
 }
-document.getElementById('btn_scr').onclick = function () {
-    if (currImage === null) {
-        alert('load an image first');
-        return;
-    }
+
+function doScramble() {
     const seed = sfc32RandSeed(Math.random);
-    const plan = makeScramble(currImage.width, currImage.height, sfc32New(...seed));
-    const meta = new Uint32Array(META_NINTS);
-    const metaHeight = 8 * Math.ceil(META_NINTS * 8 * 8 / plan.newWidth);
-    meta[0] = META_MAGIC;
-    meta[1] = metaHeight;
-    meta[2] = currImage.width;
-    meta[3] = currImage.height;
-    meta.set(seed, 4);
-    meta[8] = hashMeta(meta);
-    cvs.width = plan.newWidth;
-    cvs.height = plan.newHeight + metaHeight;
+    const meta = createMeta(seed, cvs.width, cvs.height);
+    console.assert(meta.length == META_LENGTH);
+    const plan = makeScramble(cvs.width, cvs.height, sfc32New(seed));
+    const metH = Math.ceil(META_LENGTH * 32 * 8 / plan.newW) * 8;
+    cvs.width = plan.newW;
+    cvs.height = plan.newH + metH;
     ctx.clearRect(0, 0, cvs.width, cvs.height);
-    drawMetadata(ctx, cvs.width, meta);
-    for (var i = 0; i < plan.nBlocks; i++) {
-        const [sx, sy] = plan.origLeftTops[i];
-        const [dx, dy] = plan.shufLeftTops[i];
-        const w = Math.min(8, currImage.width - sx);
-        const h = Math.min(8, currImage.height - sy);
-        ctx.drawImage(currImage, sx, sy, w, h, dx, dy + metaHeight, w, h);
-    }
-    btnRst.disabled = false;
-    isOriginal = false;
-    afterDraw();
-};
-function drawMetadata(ctx, width, meta) {
-    const metabits = [];
-    for (var x of meta) {
-        for (var i = 0; i < 32; i++) {
-            metabits.push(x & 1);
-            x >>= 1;
-        }
-    }
-    var x = 0;
-    var y = 0;
-    for (const b of metabits) {
-        ctx.fillStyle = b ? 'black' : 'white';
-        ctx.fillRect(x, y, 8, 8);
-        x += 8;
-        if (x == width) x = 0, y += 8;
-    }
+    for (const [[sx, sy], [dx, dy]] of zipIter(plan.aLeftTops, plan.bLeftTops))
+        ctx.drawImage(dvs, sx, sy, 8, 8, dx, dy + metH, 8, 8);
+    drawMeta(ctx, meta, plan.newW);
+    updateLink();
 }
-function makeScramble(width, height, rngFunc) {
-    const newWidth = (width + 0b111) & ~0b111;
-    const newHeight = (height + 0b111) & ~0b111;
-    const shufLeftTops = [];
-    const origLeftTops = [];
-    for (var x = 0; x < newWidth; x += 8) {
-        for (var y = 0; y < newHeight; y += 8) {
-            shufLeftTops.push([x, y]);
-            origLeftTops.push([x, y]);
-        }
-    }
-    shuffle(shufLeftTops, rngFunc);
-    return { newWidth, newHeight, nBlocks: origLeftTops.length, shufLeftTops, origLeftTops };
+
+function tryUnscramble() {
+    if (cvs.width % 8 != 0) return;
+    if (cvs.height % 8 != 0) return;
+    const metH = Math.ceil(META_LENGTH * 32 * 8 / cvs.width) * 8;
+    if (cvs.height < metH) return;
+    const mObj = readMeta(ctx, cvs.width);
+    if (!mObj) return;
+    const plan = makeScramble(mObj.width, mObj.height, sfc32New(mObj.seed));
+    dvs.width = mObj.width;
+    dvs.height = mObj.height;
+    dtx.clearRect(0, 0, dvs.width, dvs.height);
+    for (const [[sx, sy], [dx, dy]] of zipIter(plan.bLeftTops, plan.aLeftTops))
+        dtx.drawImage(cvs, sx, sy + metH, 8, 8, dx, dy, 8, 8);
+    cvs.width = dvs.width;
+    cvs.height = dvs.height;
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    ctx.drawImage(dvs, 0, 0);
 }
+
 // https://stackoverflow.com/questions/521295/seeding-the-random-number-generator-in-javascript
-function sfc32New(a, b, c, d) {
+function sfc32New([a, b, c, d]) {
     return function () {
         a |= 0; b |= 0; c |= 0; d |= 0;
         var t = (a + b | 0) + d | 0;
@@ -164,21 +89,99 @@ function sfc32New(a, b, c, d) {
         return (t >>> 0) / 4294967296;
     };
 }
+
 function sfc32RandSeed(rngFunc) {
     return new Uint32Array([0, 1, 2, 3].map(_ => 0 | (rngFunc() * 4294967296)));
 }
+
 // https://stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array
-function shuffle(array, rngFunc) {
+function shuffle(array, rngFuncObj) {
     let i = array.length, j;
     while (i > 0) {
-        j = Math.floor(rngFunc() * i);
+        j = Math.floor(rngFuncObj() * i);
         i--;
         [array[i], array[j]] = [array[j], array[i]];
     }
     return array;
 };
-function hashMeta(metaData) {
-    const v1 = 0 | (sfc32New(...metaData.subarray(0, 4))() * 4294967296);
-    const v2 = 0 | (sfc32New(...metaData.subarray(4, 8))() * 4294967296);
-    return 0 | (sfc32New(v1, v2, v1, v2)() * 4294967296);
+
+function* zipIter(...iterables) {
+    const iterators = iterables.map(v => v[Symbol.iterator]());
+    while (true) {
+        const results = iterators.map(v => v.next());
+        if (!results.every(v => !v.done)) return;
+        yield results.map(v => v.value);
+    }
 }
+
+// https://stackoverflow.com/questions/6122571/simple-non-secure-hash-function-for-javascript
+function hashString(str) {
+    let hash = 0;
+    for (let i = 0, len = str.length; i < len; i++) {
+        let chr = str.charCodeAt(i);
+        hash = (hash << 5) - hash + chr;
+        hash |= 0; // Convert to 32bit integer
+    }
+    return new Uint32Array([hash])[0];
+}
+
+function createMeta(seed, width, height) {
+    const meta = [...seed, width, height];
+    meta.push(hashString(meta.toString()));
+    return new Uint32Array(meta);
+}
+
+function drawMeta(ctx, meta, width) {
+    let x = 0, y = 0;
+    const bits = Array.from(meta).map(v => v.toString(2).padStart(32, '0')).join('');
+    for (const b of bits) {
+        if (x >= width) y += 8, x = 0;
+        ctx.fillStyle = b == '0' ? 'white' : 'black';
+        ctx.fillRect(x, y, 8, 8);
+        x += 8;
+    }
+}
+
+function readMeta(ctx, width) {
+    let x = 0, y = 0;
+    const nbit = META_LENGTH * 32;
+    const bits = [];
+    for (let i = 0; i < nbit; i++) {
+        if (x >= width) y += 8, x = 0;
+        let pxsum = - 8 * 8 * 255; // remove all alpha value
+        for (const v of ctx.getImageData(x, y, 8, 8).data) pxsum += v;
+        const pxavg = pxsum / (8 * 8 * 3);
+        bits.push(pxavg > 127.5 ? '0' : '1');
+        x += 8;
+    }
+    const bstr = bits.join('');
+    const meta = [];
+    for (let i = 0; i < bstr.length; i += 32)
+        meta.push(parseInt(bstr.substring(i, i + 32), 2));
+    const hash = meta.pop();
+    if (hashString(meta.toString()) != hash) return null;
+    return {
+        seed: new Uint32Array(meta.slice(0, 4)),
+        width: meta[4], height: meta[5],
+    };
+}
+
+function updateLink() {
+    if (picLnk.href) URL.revokeObjectURL(picLnk.href);
+    picLnk.removeAttribute('href');
+    cvs.toBlob(function (blob) {
+        picLnk.href = URL.createObjectURL(blob);
+    });
+}
+
+btnScr.onclick = function () {
+    doScramble();
+};
+
+btnRst.onclick = function () {
+    dvs.width = cvs.width;
+    dvs.height = cvs.height;
+    dtx.clearRect(0, 0, dvs.width, dvs.height);
+    dtx.drawImage(cvs, 0, 0);
+    updateLink();
+};
