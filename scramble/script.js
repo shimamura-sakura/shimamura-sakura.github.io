@@ -3,7 +3,7 @@
 const META_LENGTH = 7;
 const eInput = document.getElementById('input');
 const btnScr = document.getElementById('btn_scr');
-const btnRst = document.getElementById('btn_rst');
+const btnOrg = document.getElementById('btn_org');
 const picLnk = document.getElementById('link');
 const cvs = document.getElementById('canvas');
 const dvs = new OffscreenCanvas(0, 0);
@@ -28,6 +28,7 @@ tmp.onload = function () {
     dtx.clearRect(0, 0, dvs.width, dvs.height);
     dtx.drawImage(cvs, 0, 0);
     updateLink();
+    btnOrg.disabled = true; // always original after load
 };
 
 function makeScramble(width, height, rngFuncObj) {
@@ -55,6 +56,7 @@ function doScramble() {
         ctx.drawImage(dvs, sx, sy, 8, 8, dx, dy + metH, 8, 8);
     drawMeta(ctx, meta, plan.newW);
     updateLink();
+    btnOrg.disabled = false; // not original after scramble
 }
 
 function tryUnscramble() {
@@ -178,10 +180,11 @@ btnScr.onclick = function () {
     doScramble();
 };
 
-btnRst.onclick = function () {
-    dvs.width = cvs.width;
-    dvs.height = cvs.height;
-    dtx.clearRect(0, 0, dvs.width, dvs.height);
-    dtx.drawImage(cvs, 0, 0);
+btnOrg.onclick = function () {
+    cvs.width = dvs.width;
+    cvs.height = dvs.height;
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    ctx.drawImage(dvs, 0, 0);
     updateLink();
+    btnOrg.disabled = true; // original after reset
 };
