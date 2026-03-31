@@ -6,6 +6,7 @@ async function registerWorker() {
 }
 
 registerWorker().then(worker => {
+  console.log('sw ok'), output.append('sw ok\n');
   clearFiles.addEventListener('click', ev =>
     worker.postMessage({ clear: true }));
   browseFile.addEventListener('change', ev =>
