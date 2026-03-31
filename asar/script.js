@@ -1,7 +1,7 @@
 'use strict';
 
 async function registerWorker() {
-  navigator.serviceWorker.register('/asar/sw.js', { scope: '/' });
+  navigator.serviceWorker.register('/asar_sw.js', { scope: '/' });
   return (await navigator.serviceWorker.ready).active;
 }
 
