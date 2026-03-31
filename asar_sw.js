@@ -23,6 +23,17 @@ function fixConfigTJS() {
   return true;
 }
 
+function replaceRootIndex() {
+  const name = '/index.html';
+  const data = entries[name];
+  if (!data) return;
+  const text = new TextDecoder('utf-8', { fatal: true }).decode(data, { stream: false });
+  const repl = text.replace('</html>', "<script>setInterval(()=>{fetch('/ping');},5000);</script></html>");
+  entries[name] = new TextEncoder().encode(repl);
+  entries['/ping'] = 'pong';
+  return true;
+}
+
 function loadASAR(ev, data) {
   try {
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
@@ -38,6 +49,7 @@ function loadASAR(ev, data) {
     Object.assign(entries, newEntries);
     ev.source.postMessage(`added ${newCount} entries`);
     if (fixConfigTJS()) ev.source.postMessage('fixed config.tjs');
+    if (replaceRootIndex()) ev.source.postMessage('added ping-ping to /index.html');
   } catch (e) {
     ev.source.postMessage(`loadASAR error: ${e}`);
   }
