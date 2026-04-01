@@ -1,14 +1,92 @@
 <!doctype html>
 <html>
-  <meta charset="utf-8" />
-  <title>Load ASAR</title>
-  <body>
-    <h1>Load ASAR</h1>
-    <div>After opening index.html, you may close this tab</div>
-    <a href="/index.html" target="_blank">Open index.html in a new window</a><br/>
-    <input id="clearFiles" type="button" value="Clear Loaded" />
-    <input id="browseFile" type="file" autocomplete="off" /><br />
-    <textarea id="output" cols="80" rows="25" readonly></textarea>
-    <script src="script.js"></script>
-  </body>
+<meta charset="utf-8" />
+<title>ASAR Tyrano Loader</title>
+
+<body>
+  选择ASAR文件，然后点击"Go!"；刷新清除已加载文件
+  <input type="button" value="Go!" id="ldrGo" disabled />
+  <input type="file" autocomplete="off" id="ldrInp" multiple /><br />
+  <textarea cols="80" rows="25" id="ldrLog"></textarea>
+  <script>(async () => {
+      const allEntries = {};
+      async function fixConfigTJS() {
+        const name = '/data/system/config.tjs', data = allEntries[name];
+        if (!data) return;
+        const text = await data.text(), rSrc = 'configSave=file';
+        if (text.indexOf(rSrc) < 0) return;
+        allEntries[name] = text.replace(rSrc, 'configSave=webstorage_compressed');
+        return true;
+      }
+      const logEl = document.getElementById('ldrLog');
+      const worker = (await navigator.serviceWorker.register('/sw.js')).active;
+      function ldrLog(s) { console.log(s); logEl.append(s, '\n'); }
+      ldrLog('Service Worker ok');
+      document.getElementById('ldrInp').addEventListener('change', async ev => {
+        const files = Array.from(ev.target.files).map(f => [
+          f.name.match(/update|更新|アップデート/i) ? 1 : 0, f]).sort();
+        ldrLog(`-- 选择了${files.length}个文件 --`);
+        console.log(files);
+        for (const [_, file] of files) try {
+          const [v0, v4, v8, vC] = new Uint32Array(await file.slice(0, 16).arrayBuffer());
+          if (!(v0 == 4 && v4 == v8 + 4 && vC + 4 <= v8))
+            ldrLog(`${file.name}: 似乎不是ASAR文件`);
+          else {
+            const newEntries = {}, newCount = function rec(o, f, p) {
+              let n = 0;
+              for (const [k, { files, offset, size }] of Object.entries(f)) if (files)
+                n += rec(o, files, p + k.toLowerCase() + '/');
+              else {
+                const off = v4 + 8 + parseInt(offset);
+                o[p + k.toLowerCase()] = file.slice(off, off + size);
+                n += 1;
+              }
+              return n;
+            }(newEntries, JSON.parse(await file.slice(16, 16 + vC).text()).files, '/');
+            Object.assign(allEntries, newEntries);
+            ldrLog(`${file.name}: 添加了 ${newCount} 个文件`);
+            if (await fixConfigTJS()) ldrLog(`${file.name}: 修改了/data/system/config.tjs`);
+          }
+        } catch (e) {
+          ldrLog(`${file.name}: 错误 ${e}`);
+          console.log(e);
+        }
+        if ('/index.html' in allEntries) {
+          document.getElementById('ldrGo').disabled = false;
+          ldrLog('已有 index.html, 可点击 Go! 启动');
+        }
+      });
+      navigator.serviceWorker.addEventListener('message', ev => {
+        const { uuid, url } = ev.data;
+        console.log('REQ', uuid, url, url in allEntries);
+        ev.source.postMessage({ uuid, reply: allEntries[url] });
+      });
+      document.getElementById('ldrGo').addEventListener('click', async () => {
+        const originalST = globalThis.setTimeout, timeouts = [];
+        globalThis.setTimeout = (...args) => timeouts.push(args);
+        const text = await (await fetch('index.html')).text();
+        const newdoc = new DOMParser().parseFromString(text, 'text/html');
+        document.documentElement.replaceWith(newdoc.documentElement);
+        const scripts = Array.from(document.querySelectorAll('script'));
+        for (const oldScr of scripts) {
+          console.log(oldScr);
+          const hasSrc = oldScr.hasAttribute('src');
+          const newScr = document.createElement('script');
+          newScr.innerHTML = oldScr.innerHTML;
+          if (hasSrc) newScr.setAttribute('src', oldScr.getAttribute('src'));
+          const { promise, resolve, reject } = Promise.withResolvers();
+          newScr.onload = () => resolve();
+          newScr.onerror = () => reject();
+          document.head.appendChild(newScr);
+          document.head.removeChild(newScr);
+          if (!hasSrc) resolve();
+          await promise;
+        }
+        globalThis.setTimeout = originalST;
+        for (const args of timeouts) originalST(...args);
+      }, { once: true });
+    })();
+  </script>
+</body>
+
 </html>
