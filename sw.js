@@ -4,28 +4,25 @@ function waitTime(t) {
   return new Promise(resolve => setTimeout(resolve, t));
 }
 
-const msgHandlers = {};
-self.addEventListener('message', ev => Object.values(msgHandlers).forEach(f => f(ev)));
+const msgHandlers = {}, knownClients = {};
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('active', e => e.waitUntil(self.clients.claim()));
-self.addEventListener('fetch', e => {
-  if (e.request.method != 'GET') return;
-  e.respondWith((async () => {
-    const client = await self.clients.get(e.clientId);
-    if (!client) return fetch(e.request);
+self.addEventListener('active', ev => ev.waitUntil(self.clients.claim()));
+self.addEventListener('message', ev => Object.values(msgHandlers).forEach(f => f(ev)));
+self.addEventListener('message', ev => { if (ev.data.imASAR) knownClients[ev.source.id] = true; });
+self.addEventListener('fetch', ev => {
+  console.log(ev);
+  if (ev.request.method != 'GET') return;
+  ev.respondWith(async function () {
+    const client = await self.clients.get(ev.clientId);
+    if (!client) return fetch(ev.request);
+    if (!knownClients[ev.clientId]) { client.postMessage({ ruASAR: true }); await waitTime(500); }
+    if (!knownClients[ev.clientId]) return fetch(ev.request);
     const uuid = crypto.randomUUID(), mUUID = crypto.randomUUID();
-    const url = decodeURI(new URL(e.request.url).pathname).toLowerCase();
     const { promise, resolve } = Promise.withResolvers();
-    function handleMsg(ev) { if (ev.data.uuid == uuid) resolve(ev.data.reply); }
-    try {
-      msgHandlers[mUUID] = handleMsg;
-      client.postMessage({ uuid, url });
-      const res = await Promise.race([promise, waitTime(5000)]);
-      return res ? new Response(res) : fetch(e.request);
-    } catch (e) {
-      return fetch(e.request);
-    } finally {
-      delete msgHandlers[mUUID];
-    }
-  })());
+    msgHandlers[mUUID] = e => { if (e.data.uuid === uuid) resolve(e.data.reply); };
+    client.postMessage({ uuid, url: decodeURI(new URL(ev.request.url).pathname).toLowerCase() });
+    const res = await Promise.race([promise, waitTime(5000)]);
+    delete msgHandlers[mUUID];
+    return res ? new Response(res) : fetch(ev.request);
+  }());
 });

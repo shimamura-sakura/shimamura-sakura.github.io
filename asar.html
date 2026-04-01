@@ -1,15 +1,25 @@
 <!doctype html>
 <html>
 <meta charset="utf-8" />
-<title>ASAR Tyrano Loader</title>
+<title>Tyrano ASAR Loader</title>
 
 <body>
-  选择ASAR文件，然后点击"Go!"；刷新清除已加载文件；请等待"Service Worker ok"出现后再操作<br />
-  <input type="button" value="Go!" id="ldrGo" disabled />
-  <input type="file" autocomplete="off" id="ldrInp" multiple /><br />
-  <textarea cols="80" rows="25" id="ldrLog"></textarea>
+  <h1>Tyrano ASAR Loader</h1>
+  <p>
+    选择一个或多个ASAR文件，然后点击"GO!"启动Tyrano.<br />
+    后添加的文件覆盖先添加的文件。刷新页面清除已加载的ASAR文件。<br />
+    程序会尝试自动将更新文件后加载，如顺序有误，请手动分多次添加。<br />
+    Tyrano游戏存档存于浏览器中，清除网站数据会清除存档。<br />
+    <input type="button" value="GO!" id="ldGo" disabled autocomplete="off" /><!--
+    --><input type="file" multiple id="ldFile" autocomplete="off" /><br />
+    <textarea cols="80" rows="25" id="ldLog" placeholder="日志" readonly></textarea>
+  </p>
   <script>(async () => {
       const allEntries = {};
+      const logEle = document.getElementById('ldLog');
+      const worker = (await navigator.serviceWorker.register('/sw.js')).active;
+      function ldLog(s) { console.log(s); logEle.append(s, '\n'); }
+      ldLog('Service Worker ok');
       async function fixConfigTJS() {
         const name = '/data/system/config.tjs', data = allEntries[name];
         if (!data) return;
@@ -18,19 +28,15 @@
         allEntries[name] = text.replace(rSrc, 'configSave=webstorage_compressed');
         return true;
       }
-      const logEl = document.getElementById('ldrLog');
-      const worker = (await navigator.serviceWorker.register('/sw.js')).active;
-      function ldrLog(s) { console.log(s); logEl.append(s, '\n'); }
-      ldrLog('Service Worker ok');
-      document.getElementById('ldrInp').addEventListener('change', async ev => {
+      document.getElementById('ldFile').addEventListener('change', async ev => {
         const files = Array.from(ev.target.files).map(f => [
           f.name.match(/update|更新|アップデート/i) ? 1 : 0, f]).sort();
-        ldrLog(`-- 选择了${files.length}个文件 --`);
+        ldLog(`-- 选择了${files.length}个文件 --`);
         console.log(files);
         for (const [_, file] of files) try {
           const [v0, v4, v8, vC] = new Uint32Array(await file.slice(0, 16).arrayBuffer());
           if (!(v0 == 4 && v4 == v8 + 4 && vC + 4 <= v8))
-            ldrLog(`${file.name}: 似乎不是ASAR文件`);
+            ldLog(`${file.name}: 似乎不是ASAR文件`);
           else {
             const newEntries = {}, newCount = function rec(o, f, p) {
               let n = 0;
@@ -44,24 +50,19 @@
               return n;
             }(newEntries, JSON.parse(await file.slice(16, 16 + vC).text()).files, '/');
             Object.assign(allEntries, newEntries);
-            ldrLog(`${file.name}: 添加了 ${newCount} 个文件`);
-            if (await fixConfigTJS()) ldrLog(`${file.name}: 修改了/data/system/config.tjs`);
+            ldLog(`${file.name}: 添加了 ${newCount} 个文件`);
+            if (await fixConfigTJS()) ldLog(`${file.name}: 修改了/data/system/config.tjs`);
           }
         } catch (e) {
-          ldrLog(`${file.name}: 错误 ${e}`);
+          ldLog(`${file.name}: 错误 ${e}`);
           console.log(e);
         }
         if ('/index.html' in allEntries) {
-          document.getElementById('ldrGo').disabled = false;
-          ldrLog('已有 index.html, 可点击 Go! 启动');
+          document.getElementById('ldGo').disabled = false;
+          ldLog('已有 index.html, 可点击 GO! 启动');
         }
       });
-      navigator.serviceWorker.addEventListener('message', ev => {
-        const { uuid, url } = ev.data;
-        console.log('REQ', uuid, url, url in allEntries);
-        ev.source.postMessage({ uuid, reply: allEntries[url] });
-      });
-      document.getElementById('ldrGo').addEventListener('click', async () => {
+      document.getElementById('ldGo').addEventListener('click', async () => {
         const originalST = globalThis.setTimeout, timeouts = [];
         globalThis.setTimeout = (...args) => timeouts.push(args);
         const text = await (await fetch('/index.html')).text();
@@ -85,8 +86,12 @@
         globalThis.setTimeout = originalST;
         for (const args of timeouts) originalST(...args);
       }, { once: true });
-    })();
-  </script>
+      navigator.serviceWorker.addEventListener('message', ev => {
+        console.log(ev.data);
+        if (ev.data.ruASAR) return ev.source.postMessage({ imASAR: true });
+        if (ev.data.uuid) return ev.source.postMessage({ uuid: ev.data.uuid, reply: allEntries[ev.data.url] });
+      });
+    })();</script>
 </body>
 
 </html>
