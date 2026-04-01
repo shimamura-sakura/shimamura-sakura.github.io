@@ -64,7 +64,7 @@
       document.getElementById('ldrGo').addEventListener('click', async () => {
         const originalST = globalThis.setTimeout, timeouts = [];
         globalThis.setTimeout = (...args) => timeouts.push(args);
-        const text = await (await fetch('index.html')).text();
+        const text = await (await fetch('/index.html')).text();
         const newdoc = new DOMParser().parseFromString(text, 'text/html');
         document.documentElement.replaceWith(newdoc.documentElement);
         const scripts = Array.from(document.querySelectorAll('script'));
