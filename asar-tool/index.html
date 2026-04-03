@@ -1,18 +1,46 @@
 <!DOCTYPE html>
 <html>
 <meta charset="utf-8">
-<title>简易ASAR解包</title>
+<title>ASAR工具</title>
 
 <body>
-  <h1>简易ASAR解包</h1>
+  <h1>ASAR工具</h1>
+  <p>文件仅在本地处理，不会上传；可保存本网页文件本地使用</p>
+  <h2>创建ASAR</h2>
   <p>
-    选择ASAR文件，然后从下方点击需要的文件；文件仅在本地处理，不会上传；可保存本网页文件本地使用<br />
-    <input type="file" autocomplete="off" onchange="loadASAR(this.files[0])">
+    选择要打包的文件夹，然后点击链接保存<br />
+    <input type="file" webkitdirectory autocomplete="off" onchange="mkASAR(this.files)">
+    <a id="downloadLink">保存ASAR文件</a>
+  </p>
+  <h2>ASAR解包</h2>
+  <p>
+    选择ASAR文件，然后从下方点击需要的文件<br />
+    <input type="file" autocomplete="off" onchange="exASAR(this.files[0])">
   </p>
   <ul id="tree">
     <li>(此处将显示文件列表)</li>
   </ul>
-  <script>async function loadASAR(f) {
+  <script>function mkASAR(fileList) {
+      if (fileList.length == 0) return;
+      let rootName = null, lastDataOff = 0;
+      const files = {}, bs = [null, null, null];
+      for (const file of fileList) {
+        let currObj = files;
+        const { size, webkitRelativePath: relPath } = file;
+        const [thisRoot, ...segs] = relPath.split('/').slice(0, -1);
+        if ((rootName ||= thisRoot) !== thisRoot) return alert('?');
+        for (const seg of segs) currObj = (currObj[seg] ||= { files: {} }).files;
+        currObj[file.name] = { offset: lastDataOff.toString(), size };
+        lastDataOff += size, bs.push(file);
+      }
+      const vcPad = ((bs[1] = new Blob([JSON.stringify({ files })])).size + 3) & ~3;
+      bs[0] = new Uint32Array([4, vcPad + 8, vcPad + 4, bs[1].size]);
+      bs[2] = new ArrayBuffer(vcPad - bs[1].size);
+      URL.revokeObjectURL(downloadLink.href);
+      downloadLink.download = rootName + '.asar';
+      downloadLink.href = URL.createObjectURL(new Blob(bs));
+    }
+    async function exASAR(f) {
       if (!f) return;
       const [v0, v4, v8, vc] = new Uint32Array(await f.slice(0, 16).arrayBuffer());
       if (!(v0 == 4 && v4 == v8 + 4 && v8 >= vc + 4))
