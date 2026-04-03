@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<meta charset="utf-8">
+<title>简易ASAR解包</title>
+
+<body>
+  <h1>简易ASAR解包</h1>
+  <p>
+    选择ASAR文件，然后从下方点击需要的文件；文件仅在本地处理，不会上传；可保存本网页文件本地使用<br />
+    <input type="file" autocomplete="off" onchange="loadASAR(this.files[0])">
+  </p>
+  <ul id="tree">
+    <li>(此处将显示文件列表)</li>
+  </ul>
+  <script>async function loadASAR(f) {
+      if (!f) return;
+      const [v0, v4, v8, vc] = new Uint32Array(await f.slice(0, 16).arrayBuffer());
+      if (!(v0 == 4 && v4 == v8 + 4 && v8 >= vc + 4))
+        return alert('似乎不是ASAR文件');
+      try {
+        const entriesTree = function rec(j) {
+          return Object.fromEntries(Object.entries(j).map(([k,
+            { files, offset, size }]) => [k, files ? rec(files) :
+              f.slice(offset = 8 + v4 + parseInt(offset), offset + size)]));
+        }(JSON.parse(await f.slice(16, 16 + vc).text()).files);
+        const links = [];
+        try {
+          tree.querySelectorAll('a').forEach(a => URL.revokeObjectURL(a.href));
+          tree.innerHTML = '';
+          void function rec(r, o) {
+            for (const [k, v] of Object.entries(o))
+              if (v instanceof Blob) links.push(Object.assign(r
+                .appendChild(document.createElement('li'))
+                .appendChild(document.createElement('a')), {
+                innerText: k, download: k,
+              }).href = URL.createObjectURL(v));
+              else r
+                .appendChild(document.createElement('li'))
+                .append(k, rec(document.createElement('ul'), v));
+            return r;
+          }(tree, entriesTree);
+        } catch (e) {
+          links.forEach(l => URL.revokeObjectURL(l));
+          tree.innerHTML = '';
+          return alert('创建文件列表出错');
+        }
+      } catch (e) {
+        return alert(`解析目录出错: ${e}`);
+      }
+    }</script>
+</body>
+
+</html>
