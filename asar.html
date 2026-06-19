@@ -23,7 +23,8 @@
       async function fixConfigTJS() {
         const name = '/data/system/config.tjs', data = allEntries[name];
         if (!data) return;
-        const text = await data.text(), rSrc = 'configSave=file';
+        const text = typeof data === 'string' ? data : await data.text();
+        const rSrc = 'configSave=file';
         if (text.indexOf(rSrc) < 0) return;
         allEntries[name] = text.replace(rSrc, 'configSave=webstorage_compressed');
         return true;
